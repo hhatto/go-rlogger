@@ -1,4 +1,4 @@
-# go-rlogger
+# go-rlogger [![](https://travis-ci.org/hhatto/go-rlogger.svg?branch=master)](https://travis-ci.org/hhatto/go-rlogger)
 
 Go client for [rlogd](https://github.com/pandax381/rlogd)'s rloggerd.
 
@@ -16,13 +16,13 @@ import (
 )
 
 func main() {
-    tag := []byte("this.is.tag")
     socketPath := "/var/run/rlogd/rloggerd.sock"
-    r := rlogger.NewRLogger(tag, socketPath)
+    r := rlogger.NewRLogger(socketPath)
     defer r.Close()
 
+    tag := []byte("this.is.tag")
     msg := []byte("Hello rloggerd")
-    r.Write(msg)
+    r.Write(tag, msg)
 }
 ```
 
