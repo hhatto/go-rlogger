@@ -26,6 +26,10 @@ func main() {
 }
 ```
 
+# X-rlogger family
+* [rlogger-py](https://github.com/KLab/rlogger-py) (Python)
+* [php-rlogger](https://github.com/hnw/php-rlogger) (PHP)
+
 # License
 
 MIT
