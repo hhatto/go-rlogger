@@ -15,17 +15,13 @@ const HEADER_VERSION int32 = 1
 const HEADER_PSH int32 = 1
 
 type RLogger struct {
-	sock     *net.UnixAddr
-	conn     *net.UnixConn
-	tag      []byte
-	buffSize int32
+	sock *net.UnixAddr
+	conn *net.UnixConn
 }
 
-func NewRLogger(tag []byte, socketPath string) *RLogger {
+func NewRLogger(socketPath string) *RLogger {
 	r := &RLogger{}
 	r.sock, r.conn = createUnixDomainSocket("unix", socketPath)
-	r.tag = tag
-	r.buffSize = CHUNK_SIZE - HEADER_SIZE - int32(len(tag))
 	return r
 }
 
@@ -51,9 +47,9 @@ func getRLoggerPacket(now int32, msg []byte) (buf *bytes.Buffer, err error) {
 	return buf, nil
 }
 
-func (r *RLogger) Write(msg []byte) (int, error) {
+func (r *RLogger) Write(tag, msg []byte) (int, error) {
 	now := int32(time.Now().Unix())
-	headerLen := HEADER_SIZE + int32(len(r.tag))
+	headerLen := HEADER_SIZE + int32(len(tag))
 	buf := new(bytes.Buffer)
 	msgBuf := new(bytes.Buffer)
 
@@ -85,7 +81,7 @@ func (r *RLogger) Write(msg []byte) (int, error) {
 		return 0, err
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, r.tag); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, tag); err != nil {
 		log.Printf("binary.write(tag) error. err=%v\n", err)
 		return 0, err
 	}
