@@ -29,6 +29,7 @@ func main() {
 # X-rlogger family
 * [rlogger-py](https://github.com/KLab/rlogger-py) (Python)
 * [php-rlogger](https://github.com/hnw/php-rlogger) (PHP)
+* [rust-rlogger](https://github.com/hhatto/rust-rlogger) (Rust)
 
 # License
 
