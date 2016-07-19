@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -25,37 +26,28 @@ func NewRLogger(socketPath string) *RLogger {
 	return r
 }
 
-func getRLoggerPacket(now int32, msg []byte) (buf *bytes.Buffer, err error) {
-	buf = new(bytes.Buffer)
-	msgLen := int32(len(msg))
+func appendPacket(buf *bytes.Buffer, now uint32, msg []byte) {
+	scratch := make([]byte, 8)
+	msgLen := uint32(len(msg))
 
-	if err = binary.Write(buf, binary.BigEndian, int32(now)); err != nil {
-		log.Printf("binary.write(time) error. err=%v\n", err)
-		return
-	}
-
-	if err = binary.Write(buf, binary.BigEndian, int32(msgLen)); err != nil {
-		log.Printf("binary.write(msgLen) error. err=%v\n", err)
-		return
-	}
-
-	if err = binary.Write(buf, binary.BigEndian, msg); err != nil {
-		log.Printf("binary.write(msg) error. err=%v\n", err)
-		return
-	}
-
-	return buf, nil
+	binary.BigEndian.PutUint32(scratch, now)
+	binary.BigEndian.PutUint32(scratch[4:], msgLen)
+	buf.Write(scratch) // never retruns nil
+	buf.Write(msg)
 }
 
 func (r *RLogger) Write(tag, msg []byte) (int, error) {
-	now := int32(time.Now().Unix())
+	return write(r.conn, tag, msg)
+}
+
+func write(w io.Writer, tag, msg []byte) (int, error) {
+	now := uint32(time.Now().Unix())
 	headerLen := HEADER_SIZE + int32(len(tag))
 	buf := new(bytes.Buffer)
 	msgBuf := new(bytes.Buffer)
 
 	for _, line := range bytes.Split(msg, []byte("\n")) {
-		pkt, _ := getRLoggerPacket(now, line)
-		msgBuf.Write(pkt.Bytes())
+		appendPacket(msgBuf, now, line)
 	}
 
 	msgLen := int32(msgBuf.Len())
@@ -86,9 +78,9 @@ func (r *RLogger) Write(tag, msg []byte) (int, error) {
 		return 0, err
 	}
 
-	buf.Write(msgBuf.Bytes())
-
-	return r.conn.Write(buf.Bytes())
+	msgBuf.WriteTo(buf)
+	nw, err := buf.WriteTo(w)
+	return int(nw), err
 }
 
 func (r *RLogger) Close() {
