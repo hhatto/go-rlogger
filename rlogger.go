@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -48,6 +49,10 @@ func getRLoggerPacket(now int32, msg []byte) (buf *bytes.Buffer, err error) {
 }
 
 func (r *RLogger) Write(tag, msg []byte) (int, error) {
+	return write(r.conn, tag, msg)
+}
+
+func write(w io.Writer, tag, msg []byte) (int, error) {
 	now := int32(time.Now().Unix())
 	headerLen := HEADER_SIZE + int32(len(tag))
 	buf := new(bytes.Buffer)
@@ -87,8 +92,7 @@ func (r *RLogger) Write(tag, msg []byte) (int, error) {
 	}
 
 	buf.Write(msgBuf.Bytes())
-
-	return r.conn.Write(buf.Bytes())
+	return w.Write(buf.Bytes())
 }
 
 func (r *RLogger) Close() {
