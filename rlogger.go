@@ -55,8 +55,11 @@ func write(w io.Writer, tag, msg []byte) (int, error) {
 	now := uint32(time.Now().Unix())
 	headerLen := HEADER_SIZE + int32(len(tag))
 	buf := Buffs.Get().(*bytes.Buffer)
-	defer Buffs.Put(buf)
-	msgBuf := new(bytes.Buffer)
+	msgBuf := Buffs.Get().(*bytes.Buffer)
+	defer func() {
+		Buffs.Put(msgBuf)
+		Buffs.Put(buf)
+	}()
 
 	offset := 0
 	for {
