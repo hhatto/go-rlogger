@@ -1,67 +1,42 @@
 package rlogger
 
 import (
-	"io/ioutil"
-	"net"
-	"os"
-	"path/filepath"
+	"bytes"
 	"testing"
 )
 
-var SOCKET_PATH string
+func TestInnerWriteOneLine(t *testing.T) {
+	buf := new(bytes.Buffer)
+	write(buf, []byte("tag"), []byte("msg"))
 
-func TestSimpleWrite(t *testing.T) {
-	tag := []byte("this.is.tag")
-	msg := []byte("hogehoge1")
-	t.Logf("path=%v\n", SOCKET_PATH)
-	r := NewRLogger(SOCKET_PATH)
-	defer r.Close()
-	ret, err := r.Write(tag, msg)
-	if err != nil {
-		t.Errorf("write error: err=%v", err)
+	b := buf.Bytes()
+
+	if buf.Len() != 26 {
+		t.Errorf("invalid packet length. len=%v, pkt=%v", buf.Len(), b)
 	}
 
-	if ret != 40 {
-		t.Errorf("invalid msg len. len=%v", ret)
-	}
-}
-
-func TestTwoLineWrite(t *testing.T) {
-	tag := []byte("this.is.tag")
-	msg := []byte("hogehoge2\nhogehoge3")
-	r := NewRLogger(SOCKET_PATH)
-	defer r.Close()
-	ret, err := r.Write(tag, msg)
-	if err != nil {
-		t.Errorf("write error: err=%v", err)
+	// check version
+	if b[0] != 1 {
+		t.Errorf("invalid version: %v", b[0])
 	}
 
-	if ret != 57 {
-		t.Errorf("invalid msg len. len=%v", ret)
-	}
-}
-
-func TestMain(m *testing.M) {
-	dir, err := ioutil.TempDir("", "gorlogger")
-	if err != nil {
-		panic(err)
+	// check header size
+	if b[3] != 15 {
+		t.Errorf("invalid header size: %v", b[3])
 	}
 
-	SOCKET_PATH = filepath.Join(dir, "rloggerd.dummy.sock")
-	unixListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: SOCKET_PATH, Net: "unix"})
-	if err != nil {
-		os.RemoveAll(dir)
-		panic(err)
+	// check tag string
+	if string(b[12:15]) != "tag" {
+		t.Errorf("invalid tag string: %s", b[12:15])
 	}
 
-	go func() {
-		for {
-			unixListener.Accept()
-		}
-	}()
+	// check msg size
+	if b[22] != 3 {
+		t.Errorf("invalid message size: %v", b[22])
+	}
 
-	ret := m.Run()
-	os.RemoveAll(dir)
-
-	os.Exit(ret)
+	// check msg string
+	if string(b[23:]) != "msg" {
+		t.Errorf("invalid message string: %s", b[23:])
+	}
 }
