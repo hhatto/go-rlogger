@@ -82,7 +82,10 @@ func write(w io.Writer, tag, msg []byte) (int, error) {
 	scratch = append(scratch, tag...)
 
 	buf.Write(scratch)
-	msgBuf.WriteTo(buf)
+	if _, err := msgBuf.WriteTo(buf); err != nil {
+		return 0, err
+	}
+
 	nw, err := buf.WriteTo(w)
 	return int(nw), err
 }
