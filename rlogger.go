@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -72,34 +71,17 @@ func write(w io.Writer, tag, msg []byte) (int, error) {
 		offset += ret + 1
 	}
 
-	msgLen := int32(msgBuf.Len())
+	pktLen := int32(msgBuf.Len()) + headerLen
 
-	if err := binary.Write(buf, binary.BigEndian, int8(HEADER_VERSION)); err != nil {
-		log.Println("binary.write(HEADER_VERSION) error")
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int8(HEADER_PSH)); err != nil {
-		log.Println("binary.write(HEADER_PSH) error")
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int16(headerLen)); err != nil {
-		log.Println("binary.write(headerLen) error")
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int32(0)); err != nil {
-		log.Printf("binary.write(offset) error. err=%v\n", err)
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int32(headerLen+msgLen)); err != nil {
-		log.Println("binary.write(headerLen+msgLen) error")
-		return 0, err
-	}
+	scratch := make([]byte, HEADER_SIZE)
+	scratch[0] = uint8(HEADER_VERSION)
+	scratch[1] = uint8(HEADER_PSH)
+	binary.BigEndian.PutUint16(scratch[2:], uint16(headerLen))
+	binary.BigEndian.PutUint32(scratch[4:], 0)
+	binary.BigEndian.PutUint32(scratch[8:], uint32(pktLen))
+	scratch = append(scratch, tag...)
 
-	if err := binary.Write(buf, binary.BigEndian, tag); err != nil {
-		log.Printf("binary.write(tag) error. err=%v\n", err)
-		return 0, err
-	}
-
+	buf.Write(scratch)
 	msgBuf.WriteTo(buf)
 	nw, err := buf.WriteTo(w)
 	return int(nw), err
