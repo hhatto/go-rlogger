@@ -47,7 +47,7 @@ func TestInnerWriteOneLineWithLastCR(t *testing.T) {
 
 	b := buf.Bytes()
 
-	if buf.Len() != 26 {
+	if buf.Len() != 34 {
 		t.Errorf("invalid packet length. len=%v, pkt=%v", buf.Len(), b)
 	}
 
@@ -72,8 +72,13 @@ func TestInnerWriteOneLineWithLastCR(t *testing.T) {
 	}
 
 	// check msg string
-	if string(b[23:]) != "msg" {
-		t.Errorf("invalid message string: %s", b[23:])
+	if string(b[23:26]) != "msg" {
+		t.Errorf("invalid message string: %s", b[23:26])
+	}
+
+	// check msg size (line 2) -> empty
+	if b[33] != 0 {
+		t.Errorf("invalid message size: %v", b[33])
 	}
 }
 
@@ -117,7 +122,7 @@ func TestInnerWriteTwoLine(t *testing.T) {
 		t.Errorf("invalid message size: %v", b[34])
 	}
 
-	// check msg string (line 1)
+	// check msg string (line 2)
 	if string(b[35:]) != "msg2" {
 		t.Errorf("invalid message string: %s", b[35:])
 	}
@@ -129,7 +134,7 @@ func TestInnerWriteTwoLineWithLastCR(t *testing.T) {
 
 	b := buf.Bytes()
 
-	if buf.Len() != 39 {
+	if buf.Len() != 47 {
 		t.Errorf("invalid packet length. len=%v, pkt=%v", buf.Len(), b)
 	}
 
@@ -163,8 +168,14 @@ func TestInnerWriteTwoLineWithLastCR(t *testing.T) {
 		t.Errorf("invalid message size: %v", b[34])
 	}
 
-	// check msg string (line 1)
-	if string(b[35:]) != "msg2" {
-		t.Errorf("invalid message string: %s", b[35:])
+	// check msg string (line 2)
+	if string(b[35:39]) != "msg2" {
+		t.Errorf("invalid message string: %s", b[35:39])
 	}
+
+	// check msg size (line 3) -> empty
+	if b[46] != 0 {
+		t.Errorf("invalid message size: %v", b[46])
+	}
+
 }
