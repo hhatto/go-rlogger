@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -15,9 +16,19 @@ const HEADER_SIZE int32 = 12
 const HEADER_VERSION int32 = 1
 const HEADER_PSH int32 = 1
 
+var Buffs sync.Pool
+
 type RLogger struct {
 	sock *net.UnixAddr
 	conn *net.UnixConn
+}
+
+func init() {
+	Buffs = sync.Pool{
+		New: func() interface{} {
+			return new(bytes.Buffer)
+		},
+	}
 }
 
 func NewRLogger(socketPath string) *RLogger {
@@ -43,7 +54,8 @@ func (r *RLogger) Write(tag, msg []byte) (int, error) {
 func write(w io.Writer, tag, msg []byte) (int, error) {
 	now := uint32(time.Now().Unix())
 	headerLen := HEADER_SIZE + int32(len(tag))
-	buf := new(bytes.Buffer)
+	buf := Buffs.Get().(*bytes.Buffer)
+	defer Buffs.Put(buf)
 	msgBuf := new(bytes.Buffer)
 
 	offset := 0
