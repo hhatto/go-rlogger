@@ -47,7 +47,7 @@ func write(w io.Writer, tag, msg []byte) (int, error) {
 	msgBuf := new(bytes.Buffer)
 
 	offset := 0
-	for len(msg[offset:]) > 0 {
+	for {
 		ret := bytes.IndexByte(msg[offset:], '\n')
 		if ret == -1 {
 			appendPacket(msgBuf, now, msg[offset:])
