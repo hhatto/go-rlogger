@@ -79,9 +79,9 @@ func write(w io.Writer, tag, msg []byte) (int, error) {
 	binary.BigEndian.PutUint16(scratch[2:], uint16(headerLen))
 	binary.BigEndian.PutUint32(scratch[4:], 0)
 	binary.BigEndian.PutUint32(scratch[8:], uint32(pktLen))
-	scratch = append(scratch, tag...)
-
 	buf.Write(scratch)
+	buf.Write(tag)
+
 	if _, err := msgBuf.WriteTo(buf); err != nil {
 		return 0, err
 	}
