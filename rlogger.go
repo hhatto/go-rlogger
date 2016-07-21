@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -15,9 +15,19 @@ const HEADER_SIZE int32 = 12
 const HEADER_VERSION int32 = 1
 const HEADER_PSH int32 = 1
 
+var Buffs sync.Pool
+
 type RLogger struct {
 	sock *net.UnixAddr
 	conn *net.UnixConn
+}
+
+func init() {
+	Buffs = sync.Pool{
+		New: func() interface{} {
+			return new(bytes.Buffer)
+		},
+	}
 }
 
 func NewRLogger(socketPath string) *RLogger {
@@ -43,42 +53,39 @@ func (r *RLogger) Write(tag, msg []byte) (int, error) {
 func write(w io.Writer, tag, msg []byte) (int, error) {
 	now := uint32(time.Now().Unix())
 	headerLen := HEADER_SIZE + int32(len(tag))
-	buf := new(bytes.Buffer)
-	msgBuf := new(bytes.Buffer)
+	buf := Buffs.Get().(*bytes.Buffer)
+	msgBuf := Buffs.Get().(*bytes.Buffer)
+	defer func() {
+		Buffs.Put(msgBuf)
+		Buffs.Put(buf)
+	}()
 
-	for _, line := range bytes.Split(msg, []byte("\n")) {
-		appendPacket(msgBuf, now, line)
-	}
-
-	msgLen := int32(msgBuf.Len())
-
-	if err := binary.Write(buf, binary.BigEndian, int8(HEADER_VERSION)); err != nil {
-		log.Println("binary.write(HEADER_VERSION) error")
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int8(HEADER_PSH)); err != nil {
-		log.Println("binary.write(HEADER_PSH) error")
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int16(headerLen)); err != nil {
-		log.Println("binary.write(headerLen) error")
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int32(0)); err != nil {
-		log.Printf("binary.write(offset) error. err=%v\n", err)
-		return 0, err
-	}
-	if err := binary.Write(buf, binary.BigEndian, int32(headerLen+msgLen)); err != nil {
-		log.Println("binary.write(headerLen+msgLen) error")
-		return 0, err
+	offset := 0
+	for {
+		ret := bytes.IndexByte(msg[offset:], '\n')
+		if ret == -1 {
+			appendPacket(msgBuf, now, msg[offset:])
+			break
+		}
+		appendPacket(msgBuf, now, msg[offset:offset+ret])
+		offset += ret + 1
 	}
 
-	if err := binary.Write(buf, binary.BigEndian, tag); err != nil {
-		log.Printf("binary.write(tag) error. err=%v\n", err)
+	pktLen := int32(msgBuf.Len()) + headerLen
+
+	scratch := make([]byte, HEADER_SIZE)
+	scratch[0] = uint8(HEADER_VERSION)
+	scratch[1] = uint8(HEADER_PSH)
+	binary.BigEndian.PutUint16(scratch[2:], uint16(headerLen))
+	binary.BigEndian.PutUint32(scratch[4:], 0)
+	binary.BigEndian.PutUint32(scratch[8:], uint32(pktLen))
+	buf.Write(scratch)
+	buf.Write(tag)
+
+	if _, err := msgBuf.WriteTo(buf); err != nil {
 		return 0, err
 	}
 
-	msgBuf.WriteTo(buf)
 	nw, err := buf.WriteTo(w)
 	return int(nw), err
 }
